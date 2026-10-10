@@ -22,15 +22,14 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-# Small dataset -> repeated CV gives a far more stable estimate than one split
+
 cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=3, random_state=42)
 
-# Candidate 1: Logistic Regression (needs scaling, so scaler lives in the pipeline)
+
 lr = Pipeline([("scale", StandardScaler()), ("clf", LogisticRegression(max_iter=1000))])
 lr_scores = cross_val_score(lr, X_train, y_train, cv=cv, scoring="roc_auc")
 print(f"LogReg CV AUC: {lr_scores.mean():.4f} +/- {lr_scores.std():.4f}")
 
-# Candidate 2: Random Forest (scale-invariant, so no scaler; no SMOTE, classes are ~balanced)
 rf_search = RandomizedSearchCV(
     RandomForestClassifier(random_state=42),
     param_distributions={
@@ -44,14 +43,13 @@ rf_search.fit(X_train, y_train)
 print("RF best params:", rf_search.best_params_)
 print(f"RF CV AUC: {rf_search.best_score_:.4f}  (slightly optimistic: tuned on these folds)")
 
-# Pick ONE model using CV, then use it for every reported metric
+
 if rf_search.best_score_ > lr_scores.mean():
     name, model = "RandomForest", rf_search.best_estimator_
 else:
     name, model = "LogisticRegression", lr.fit(X_train, y_train)
 print("Selected:", name)
 
-# Final check on the untouched test set: same model for report AND AUC
 pred = model.predict(X_test)
 proba = model.predict_proba(X_test)[:, 1]
 print(classification_report(y_test, pred))
